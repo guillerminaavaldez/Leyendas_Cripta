@@ -13,7 +13,7 @@ def main():
     ANCHO = 850
     ALTO = 650
     pantalla = pygame.display.set_mode((ANCHO, ALTO))
-    pygame.display.set_caption("Leyendas de la Cripta - Edición Pociones y Niveles")
+    pygame.display.set_caption("Leyendas de la Cripta - Edición Pociones y Niveles ")
 
     reloj = pygame.time.Clock()
 
@@ -252,6 +252,7 @@ def main():
             pantalla.blit(surf_aviso, rect_aviso)
             frames_mensaje_hud -= 1
 
+
         # ==================== 4. OVERLAYS DE ESTADOS ====================
         if estado_juego == "tienda":
             tienda.dibujar(pantalla, jugador)
@@ -298,6 +299,7 @@ def main():
         reloj.tick(60)
 
     pygame.quit()
+
 
 
 if __name__ == "__main__":
