@@ -21,6 +21,26 @@ from src.niveles import GestorNiveles
 from src.eventos import procesar_eventos
 from src.renderizado import Renderizador
 
+def cargar_archivo_env():
+    """Carga variables desde el archivo .env o .venv si existe y no están definidas en el sistema."""
+    for nombre in [".env", ".venv"]:
+        ruta = os.path.join(os.path.dirname(__file__), nombre)
+        if os.path.isfile(ruta):
+            with open(ruta, "r", encoding="utf-8") as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if not linea or linea.startswith("#"):
+                        continue
+                    if "=" in linea:
+                        clave, valor = linea.split("=", 1)
+                        clave = clave.strip()
+                        valor = valor.strip().strip("\"'")
+                        if clave and clave not in os.environ:
+                            os.environ[clave] = valor
+            break
+
+cargar_archivo_env()
+
 # Variables de entorno para credenciales de base de datos
 DB_USUARIO = os.getenv("DB_USUARIO")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
