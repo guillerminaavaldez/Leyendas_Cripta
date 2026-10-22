@@ -1,4 +1,13 @@
 # MODULARIZADO: Punto de entrada principal y orquestador del juego "Leyendas de la Cripta"
+import os
+import sys
+
+# Ocultar mensaje promocional de pygame en consola
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+# Asegurar compatibilidad de importación para módulos en src/
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 import pygame
 from config import (
     ANCHO, ALTO, FPS, TITULO_VENTANA, RECT_META,
@@ -12,8 +21,23 @@ from src.niveles import GestorNiveles
 from src.eventos import procesar_eventos
 from src.renderizado import Renderizador
 
+# Variables de entorno para credenciales de base de datos
+DB_USUARIO = os.getenv("DB_USUARIO")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
 
 def main():
+    # Validación de credenciales desde variables de entorno
+    global DB_USUARIO, DB_PASSWORD
+    DB_USUARIO = os.getenv("DB_USUARIO")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+    if not DB_USUARIO or not DB_PASSWORD:
+        print("Error: Las variables de entorno DB_USUARIO y DB_PASSWORD son obligatorias.")
+        sys.exit(1)
+
+    print(f"Conectando usuario: {DB_USUARIO}")
+
     # 1. Inicialización de pygame y ventana
     pygame.init()
     pantalla = pygame.display.set_mode((ANCHO, ALTO))
