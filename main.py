@@ -5,12 +5,12 @@ from config import (
     RUTA_HEROE, RUTA_ENEMIGO, VELOCIDAD_HEROE, VELOCIDAD_ENEMIGO,
     POS_INICIAL_HEROE, POS_INICIAL_ENEMIGO, RECOMPENSA_POR_NIVEL, NIVEL_MAXIMO
 )
-from personajes import Jugador, Enemigo
-from colisiones import detectar_colision
-from tienda import TiendaPociones
-from niveles import GestorNiveles
-from eventos import procesar_eventos
-from renderizado import Renderizador
+from src.personajes import Jugador, Enemigo
+from src.colisiones import detectar_colision
+from src.tienda import TiendaPociones
+from src.niveles import GestorNiveles
+from src.eventos import procesar_eventos
+from src.renderizado import Renderizador
 
 
 def main():
