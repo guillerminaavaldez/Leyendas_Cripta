@@ -1,11 +1,12 @@
 import math
 import pygame
+from config import DURACION_RETRASO_SEG, DURACION_PREDICCION_SEG
 
 # Definición de información, costos y teclas de activación de pociones
 DATOS_POCIONES = {
     "retraso": {
         "nombre": "Poción de Congelación",
-        "descripcion": "Retrasa al enemigo exactamente 2 movimientos.",
+        "descripcion": "Retrasa al enemigo durante 1 segundo.",
         "costo": 25,
         "tecla_uso": "T",  # MODIFICADO: Tecla asignada claramente
         "color": (80, 180, 255)
@@ -29,16 +30,16 @@ DATOS_POCIONES = {
 
 def usar_pocion_retraso(jugador, enemigo) -> tuple[bool, str]:
     """
-    MODIFICADO: Aplica exactamente 2 movimientos de retraso al enemigo.
+    MODIFICADO: Aplica retraso en segundos al enemigo basado en DURACION_RETRASO_SEG.
     Solo se consume si el jugador tiene al menos 1 unidad.
     """
     if jugador.pociones.get("retraso", 0) <= 0:
         return False, "¡No tienes Pociones de Retraso [T]! Cómpralas en la Tienda [M]"
 
     jugador.pociones["retraso"] -= 1
-    # 2 movimientos de retraso para el enemigo (60 frames ~ 2 ciclos completos de movimiento)
-    enemigo.movimientos_retraso += 60
-    return True, "¡[T] Enemigo retrasado durante 2 movimientos!"
+    # Duración en segundos acumulable
+    enemigo.tiempo_retraso += DURACION_RETRASO_SEG
+    return True, f"¡[T] Enemigo retrasado durante {DURACION_RETRASO_SEG}s!"
 
 
 def usar_pocion_salto(jugador, enemigo, ancho_pantalla, alto_pantalla, obstaculos) -> tuple[bool, str]:
@@ -96,9 +97,9 @@ def usar_pocion_vision(jugador, enemigo) -> tuple[bool, str]:
 
     jugador.pociones["vision"] -= 1
     enemigo.mostrar_prediccion = True
-    enemigo.frames_prediccion = 180  # Visible durante ~3 segundos
+    enemigo.tiempo_prediccion = DURACION_PREDICCION_SEG  # Visible durante 3.0 segundos
 
     siguiente_x, siguiente_y = enemigo.calcular_siguiente_posicion(jugador.x, jugador.y)
     enemigo.prediccion_pos = (siguiente_x, siguiente_y)
 
-    return True, "¡[Y] Siguiente posición del enemigo revelada!"
+    return True, f"¡[Y] Siguiente posición del enemigo revelada durante {DURACION_PREDICCION_SEG}s!"

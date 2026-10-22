@@ -33,22 +33,41 @@ class Renderizador:
         """
         # Predicción de la siguiente posición del enemigo (Poción Y)
         if enemigo.mostrar_prediccion:
-            pred_rect = pygame.Rect(
-                int(enemigo.prediccion_pos[0]),
-                int(enemigo.prediccion_pos[1]),
-                enemigo.TAMANO_SPRITE,
-                enemigo.TAMANO_SPRITE
-            )
+            px = int(enemigo.prediccion_pos[0])
+            py = int(enemigo.prediccion_pos[1])
+            pred_rect = pygame.Rect(px, py, enemigo.TAMANO_SPRITE, enemigo.TAMANO_SPRITE)
+
+            # Flecha punteada desde el enemigo hasta la posición predicha
+            origen_x = enemigo.rect.centerx
+            origen_y = enemigo.rect.centery
+            destino_x = pred_rect.centerx
+            destino_y = pred_rect.centery
+            dx = destino_x - origen_x
+            dy = destino_y - origen_y
+            longitud = max(1, (dx ** 2 + dy ** 2) ** 0.5)
+            segmentos = max(2, int(longitud // 20))
+            for i in range(segmentos):
+                t0 = i / segmentos
+                t1 = (i + 0.5) / segmentos
+                sx0 = int(origen_x + dx * t0)
+                sy0 = int(origen_y + dy * t0)
+                sx1 = int(origen_x + dx * t1)
+                sy1 = int(origen_y + dy * t1)
+                pygame.draw.line(pantalla, (230, 160, 255), (sx0, sy0), (sx1, sy1), 2)
+
+            # Marcador semitransparente en la posición predicha
             sombra = pygame.Surface((enemigo.TAMANO_SPRITE, enemigo.TAMANO_SPRITE), pygame.SRCALPHA)
-            sombra.fill((190, 90, 255, 110))
+            sombra.fill((190, 90, 255, 90))
             pantalla.blit(sombra, pred_rect)
             pygame.draw.rect(pantalla, (230, 160, 255), pred_rect, width=2, border_radius=6)
-            txt_pred = self.fuente_hud.render("Siguiente Posición", True, (240, 180, 255))
-            pantalla.blit(txt_pred, (pred_rect.x - 10, pred_rect.y - 18))
+
+            # Etiqueta con horizonte de tiempo
+            txt_pred = self.fuente_hud.render("Posición en ~1.5s", True, (240, 180, 255))
+            pantalla.blit(txt_pred, (pred_rect.x, pred_rect.y - 20))
 
         # Enemigo (con tinte azul si está retrasado/congelado)
         pantalla.blit(enemigo.imagen, enemigo.rect)
-        if enemigo.movimientos_retraso > 0:
+        if getattr(enemigo, "tiempo_retraso", 0.0) > 0.0:
             congelado_surf = pygame.Surface((enemigo.rect.width, enemigo.rect.height), pygame.SRCALPHA)
             congelado_surf.fill((100, 200, 255, 120))
             pantalla.blit(congelado_surf, enemigo.rect)
@@ -56,7 +75,7 @@ class Renderizador:
         # Héroe
         pantalla.blit(jugador.imagen, jugador.rect)
 
-    def dibujar_hud(self, pantalla, nivel_actual: int, jugador, mensaje_hud: str, frames_hud: int, color_hud: tuple):
+    def dibujar_hud(self, pantalla, nivel_actual: int, jugador, mensaje_hud: str, tiempo_hud: float, color_hud: tuple):
         """
         MODULARIZADO: Dibuja la barra superior de información y los mensajes flotantes de feedback.
         """
@@ -80,7 +99,7 @@ class Renderizador:
         pantalla.blit(txt_tienda_btn, (ANCHO - 105, 13))
 
         # Mensaje flotante de feedback
-        if frames_hud > 0:
+        if tiempo_hud > 0:
             surf_aviso = self.fuente_sub.render(mensaje_hud, True, color_hud)
             rect_aviso = surf_aviso.get_rect(center=(ANCHO // 2, 68))
             bg_aviso = pygame.Surface((rect_aviso.width + 20, rect_aviso.height + 8), pygame.SRCALPHA)

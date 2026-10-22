@@ -10,33 +10,39 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 import pygame
 from config import (
-    ANCHO, ALTO, FPS, TITULO_VENTANA, RECT_META,
-    RUTA_HEROE, RUTA_ENEMIGO, VELOCIDAD_HEROE, VELOCIDAD_ENEMIGO,
-    POS_INICIAL_HEROE, POS_INICIAL_ENEMIGO, RECOMPENSA_POR_NIVEL, NIVEL_MAXIMO
+    ANCHO,
+    ALTO,
+    FPS,
+    DT_MAX,
+    TITULO_VENTANA,
+    ESCENA_MENU,
+    ESCENA_NIVEL_1,
 )
-from src.personajes import Jugador, Enemigo
-from src.colisiones import detectar_colision
-from src.tienda import TiendaPociones
-from src.niveles import GestorNiveles
-from src.eventos import procesar_eventos
-from src.renderizado import Renderizador
+from src.gestor_escenas import GestorEscenas
+from src.escenas.menu import EscenaMenu
+from src.escenas.nivel1 import EscenaNivel1
 
-def cargar_archivo_env():
+
+def cargar_archivo_env() -> None:
     """Carga variables desde el archivo .env si existe y no están definidas en el sistema."""
-    ruta_env = os.path.join(os.path.dirname(__file__), ".env")
-    if os.path.exists(ruta_env):
-        with open(ruta_env, "r", encoding="utf-8") as f:
-            for linea in f:
-                linea = linea.strip()
-                if not linea or linea.startswith("#"):
-                    continue
-                if "=" in linea:
-                    clave, valor = linea.split("=", 1)
-                    clave = clave.strip()
-                    valor = valor.strip().strip("\"'")
-                    if clave and clave not in os.environ:
-                        os.environ[clave] = valor
+    for nombre in [".env", ".venv"]:
+        ruta = os.path.join(os.path.dirname(__file__), nombre)
+        if os.path.isfile(ruta):
+            with open(ruta, "r", encoding="utf-8") as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if not linea or linea.startswith("#"):
+                        continue
+                    if "=" in linea:
+                        clave, valor = linea.split("=", 1)
+                        clave = clave.strip()
+                        valor = valor.strip().strip("\"'")
+                        if clave and clave not in os.environ:
+                            os.environ[clave] = valor
+            break
 
+
+# Carga preliminar de variables de entorno
 cargar_archivo_env()
 
 # Variables de entorno para credenciales de base de datos
@@ -44,8 +50,8 @@ DB_USUARIO = os.getenv("DB_USUARIO")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 
-def main():
-    # Validación de credenciales desde variables de entorno
+def main() -> None:
+    # 1. Validación de credenciales desde variables de entorno
     global DB_USUARIO, DB_PASSWORD
     DB_USUARIO = os.getenv("DB_USUARIO")
     DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -56,94 +62,45 @@ def main():
 
     print(f"Conectando usuario: {DB_USUARIO}")
 
-    # 1. Inicialización de pygame y ventana
+    # 2. Inicialización de Pygame y ventana principal
     pygame.init()
     pantalla = pygame.display.set_mode((ANCHO, ALTO))
     pygame.display.set_caption(TITULO_VENTANA)
     reloj = pygame.time.Clock()
 
-    # 2. Creación de componentes principales
-    jugador = Jugador(x=POS_INICIAL_HEROE[0], y=POS_INICIAL_HEROE[1], velocidad=VELOCIDAD_HEROE, ruta_imagen=RUTA_HEROE)
-    enemigo = Enemigo(x=POS_INICIAL_ENEMIGO[0], y=POS_INICIAL_ENEMIGO[1], velocidad=VELOCIDAD_ENEMIGO, ruta_imagen=RUTA_ENEMIGO)
+    # 3. Inicialización del Gestor de Escenas y registro de pantallas
+    gestor = GestorEscenas()
+    gestor.registrar(ESCENA_MENU, EscenaMenu(gestor))
+    gestor.registrar(ESCENA_NIVEL_1, EscenaNivel1(gestor))
 
-    gestor_niveles = GestorNiveles(RECT_META)
-    obstaculos = gestor_niveles.iniciar_nivel(gestor_niveles.nivel_actual, jugador, enemigo)
-
-    tienda = TiendaPociones(ANCHO, ALTO)
-    renderizador = Renderizador()
-
-    # 3. Control de estados y mensajes temporales
-    estado_juego = "jugando"  # Estados: "jugando", "tienda", "victoria_nivel", "derrota", "juego_completado"
-    estado_previo = "jugando"
-
-    mensaje_hud = ""
-    frames_mensaje_hud = 0
-    color_mensaje_hud = (255, 255, 255)
-
-    def mostrar_aviso_hud(texto: str, color: tuple = (255, 255, 200)):
-        nonlocal mensaje_hud, frames_mensaje_hud, color_mensaje_hud
-        mensaje_hud = texto
-        color_mensaje_hud = color
-        frames_mensaje_hud = 120
-
-    ejecutando = True
+    # 4. Estado inicial: comenzar en el Menú Principal
+    gestor.cambiar_escena(ESCENA_MENU)
 
     # ==================== BUCLE PRINCIPAL ====================
-    while ejecutando:
-        # --- A. Procesamiento de Eventos ---
-        ejecutando, estado_juego, estado_previo, obstaculos = procesar_eventos(
-            estado_juego,
-            estado_previo,
-            jugador,
-            enemigo,
-            tienda,
-            gestor_niveles,
-            obstaculos,
-            mostrar_aviso_hud
-        )
+    while gestor.ejecutando:
+        # A. Control de tasa de cuadros y cálculo de Delta Time (en segundos)
+        # Tope de seguridad (DT_MAX = 0.05s / máx 20 FPS equivalentes):
+        # Si la ventana se congela, se arrastra o sufre una caída abrupta de rendimiento,
+        # un dt sin límite provocaría un paso de integración física gigantesco en un único frame.
+        # Ese salto desmedido haría que el héroe o enemigo 'atraviesen' paredes y obstáculos
+        # por falta de colisión intermedia (fenómeno conocido como tunneling o efecto túnel).
+        dt_real = reloj.tick(FPS) / 1000.0
+        dt = min(dt_real, DT_MAX)
 
-        # --- B. Actualización Lógica ---
-        if estado_juego == "jugando":
-            # Movimiento continuo del héroe
-            teclas = pygame.key.get_pressed()
-            jugador.mover_con_obstaculos(teclas, ANCHO, ALTO, obstaculos)
+        # B. Captura única de eventos por cuadro
+        eventos = pygame.event.get()
 
-            # Persecución del enemigo con soporte de retraso
-            enemigo.perseguir_con_retraso(jugador.x, jugador.y, ANCHO, ALTO)
+        # C. Delegación del ciclo de vida a la escena activa
+        gestor.manejar_eventos(eventos)
+        gestor.actualizar(dt)
+        gestor.dibujar(pantalla)
 
-            # Actualización de predicción si está activa
-            if enemigo.mostrar_prediccion:
-                enemigo.frames_prediccion -= 1
-                if enemigo.frames_prediccion <= 0:
-                    enemigo.mostrar_prediccion = False
-                else:
-                    enemigo.prediccion_pos = enemigo.calcular_siguiente_posicion(jugador.x, jugador.y)
-
-            # Detección de colisiones y meta
-            resultado = detectar_colision(jugador, enemigo, RECT_META)
-            if resultado == "derrota":
-                estado_juego = "derrota"
-            elif resultado == "victoria":
-                jugador.monedas += RECOMPENSA_POR_NIVEL
-                if gestor_niveles.nivel_actual >= NIVEL_MAXIMO:
-                    estado_juego = "juego_completado"
-                else:
-                    estado_juego = "victoria_nivel"
-
-        # --- C. Renderizado Gráfico ---
-        renderizador.dibujar_escenario(pantalla, gestor_niveles.nivel_actual, RECT_META, obstaculos)
-        renderizador.dibujar_actores(pantalla, jugador, enemigo)
-        renderizador.dibujar_hud(pantalla, gestor_niveles.nivel_actual, jugador, mensaje_hud, frames_mensaje_hud, color_mensaje_hud)
-        renderizador.dibujar_overlays(pantalla, estado_juego, gestor_niveles.nivel_actual, jugador, tienda)
-
-        if frames_mensaje_hud > 0:
-            frames_mensaje_hud -= 1
-
-        # --- D. Actualización de Pantalla y Temporización ---
+        # D. Refresco de pantalla
         pygame.display.flip()
-        reloj.tick(FPS)
 
+    # 5. Salida limpia de recursos
     pygame.quit()
+    sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,11 @@
 import pygame
-from pociones import DATOS_POCIONES
+try:
+    from src.pociones import DATOS_POCIONES
+except ModuleNotFoundError:
+    from pociones import DATOS_POCIONES
+
+
+from config import DURACION_AVISO_SEG
 
 
 class TiendaPociones:
@@ -12,7 +18,17 @@ class TiendaPociones:
         self.fuente_pie = pygame.font.Font(None, 22)
         self.mensaje_feedback = ""
         self.color_feedback = (255, 255, 255)
-        self.frames_feedback = 0
+        self.tiempo_feedback: float = 0.0
+
+    def actualizar(self, dt: float) -> None:
+        """
+        Avanza el temporizador de feedback de la tienda.
+        Garantiza que dibujar() permanezca como una función pura de renderizado.
+        """
+        if self.tiempo_feedback > 0.0:
+            self.tiempo_feedback -= dt
+            if self.tiempo_feedback < 0.0:
+                self.tiempo_feedback = 0.0
 
     def comprar(self, tipo_pocion: str, jugador) -> bool:
         """
@@ -28,12 +44,12 @@ class TiendaPociones:
             jugador.pociones[tipo_pocion] += 1
             self.mensaje_feedback = f"¡Compraste {info['nombre']}! (Se usa en juego con [{info['tecla_uso']}])"
             self.color_feedback = (100, 255, 100)
-            self.frames_feedback = 120
+            self.tiempo_feedback = DURACION_AVISO_SEG
             return True
         else:
             self.mensaje_feedback = f"¡Monedas insuficientes! Requiere {costo} 🪙."
             self.color_feedback = (255, 100, 100)
-            self.frames_feedback = 120
+            self.tiempo_feedback = DURACION_AVISO_SEG
             return False
 
     def dibujar(self, pantalla, jugador):
@@ -90,11 +106,10 @@ class TiendaPociones:
 
             y_item += 90
 
-        # Feedback de compra
-        if self.frames_feedback > 0:
+        # Feedback de compra (solo lectura, sin mutación de estado)
+        if self.tiempo_feedback > 0.0:
             surf_fb = self.fuente_item.render(self.mensaje_feedback, True, self.color_feedback)
             pantalla.blit(surf_fb, surf_fb.get_rect(center=(self.ancho // 2, y_item + 15)))
-            self.frames_feedback -= 1
 
         # MODIFICADO: Instrucción de retorno al juego inequívoca
         surf_salir = self.fuente_pie.render("Presiona [M] o [ESC] para VOLVER AL JUEGO", True, (160, 220, 255))

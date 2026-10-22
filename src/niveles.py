@@ -1,6 +1,9 @@
 # MODULARIZADO: Módulo de gestión y control del flujo de niveles
 import pygame
-from obstaculos import generar_obstaculos_nivel
+try:
+    from src.obstaculos import generar_obstaculos_nivel
+except ModuleNotFoundError:
+    from obstaculos import generar_obstaculos_nivel
 from config import (
     ANCHO, ALTO, NIVEL_INICIAL, NIVEL_MAXIMO,
     POS_INICIAL_HEROE, POS_INICIAL_ENEMIGO

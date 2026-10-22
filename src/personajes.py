@@ -53,7 +53,7 @@ class Personaje:
 
 
 class Jugador(Personaje):
-    def __init__(self, x, y, velocidad=4, ruta_imagen=None):
+    def __init__(self, x, y, velocidad=240.0, ruta_imagen=None):
         super().__init__(x, y, velocidad, ruta_imagen, color_fallback=(0, 200, 100))
         # Sistema de economía e inventario
         self.monedas = 0
@@ -66,24 +66,26 @@ class Jugador(Personaje):
         self.ha_ganado = False
         self.colision_procesada = False
 
-    def mover_con_obstaculos(self, teclas, ancho, alto, obstaculos):
+    def mover_con_obstaculos(self, teclas, ancho, alto, obstaculos, dt: float):
         """
-        Mueve al jugador evaluando colisiones eje por eje contra los obstáculos.
+        Mueve al jugador evaluando colisiones eje por eje contra los obstáculos,
+        utilizando paso de integración basado en dt (unidades en px/s).
         """
-        dx = 0
-        dy = 0
+        paso = self.velocidad * dt
+        dx = 0.0
+        dy = 0.0
 
         if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
-            dx -= self.velocidad
+            dx -= paso
         if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
-            dx += self.velocidad
+            dx += paso
         if teclas[pygame.K_UP] or teclas[pygame.K_w]:
-            dy -= self.velocidad
+            dy -= paso
         if teclas[pygame.K_DOWN] or teclas[pygame.K_s]:
-            dy += self.velocidad
+            dy += paso
 
         # Movimiento en eje X y resolución de colisión
-        if dx != 0:
+        if dx != 0.0:
             self.x += dx
             self.x = max(0.0, min(self.x, float(ancho - self.rect.width)))
             self.actualizar_rect()
@@ -96,7 +98,7 @@ class Jugador(Personaje):
                     self.x = float(self.rect.x)
 
         # Movimiento en eje Y y resolución de colisión
-        if dy != 0:
+        if dy != 0.0:
             self.y += dy
             self.y = max(0.0, min(self.y, float(alto - self.rect.height)))
             self.actualizar_rect()
@@ -110,48 +112,67 @@ class Jugador(Personaje):
 
 
 class Enemigo(Personaje):
-    def __init__(self, x, y, velocidad=2.2, ruta_imagen=None):
+    def __init__(self, x, y, velocidad=132.0, ruta_imagen=None):
         super().__init__(x, y, velocidad, ruta_imagen, color_fallback=(220, 50, 50))
-        # Contador de retrasos por Poción 1
-        self.movimientos_retraso = 0
-        # Estado de predicción para Poción 3
-        self.mostrar_prediccion = False
-        self.prediccion_pos = (x, y)
-        self.frames_prediccion = 0
+        # Temporizador de retraso por Poción 1 (en segundos)
+        self.tiempo_retraso: float = 0.0
+        # Estado y temporizador de predicción por Poción 3 (en segundos)
+        self.mostrar_prediccion: bool = False
+        self.prediccion_pos = (float(x), float(y))
+        self.tiempo_prediccion: float = 0.0
 
-    def calcular_siguiente_posicion(self, objetivo_x, objetivo_y):
-        """Calcula las coordenadas (x, y) del próximo paso sin modificar la posición actual."""
+    def calcular_siguiente_posicion(self, objetivo_x, objetivo_y, horizon_seg: float = 1.5):
+        """
+        Calcula las coordenadas (x, y) donde estará el enemigo dentro de
+        ``horizon_seg`` segundos si persigue al jugador sin obstáculos.
+
+        Usa la velocidad real del enemigo para que la proyección sea
+        proporcional al movimiento real, evitando el offset fijo de 30 px
+        que quedaba solapado con el propio sprite (80×80 px).
+
+        :param objetivo_x: Posición X actual del jugador.
+        :param objetivo_y: Posición Y actual del jugador.
+        :param horizon_seg: Segundos hacia el futuro que se proyectan.
+        :return: Tupla (x, y) de la posición proyectada.
+        """
         dx = objetivo_x - self.x
         dy = objetivo_y - self.y
         distancia = math.hypot(dx, dy)
         if distancia == 0:
             return self.x, self.y
 
-        step_x = (dx / distancia) * self.velocidad * 10  # Proyección visible
-        step_y = (dy / distancia) * self.velocidad * 10
+        # Desplazamiento máximo posible en el horizonte de tiempo
+        desplazamiento = min(distancia, self.velocidad * horizon_seg)
+        step_x = (dx / distancia) * desplazamiento
+        step_y = (dy / distancia) * desplazamiento
         return self.x + step_x, self.y + step_y
 
-    def perseguir_con_retraso(self, objetivo_x, objetivo_y, ancho, alto):
+    def perseguir_con_retraso(self, objetivo_x, objetivo_y, ancho, alto, dt: float):
         """
-        Persigue al jugador aplicando la lógica de retraso por poción.
+        Persigue al jugador aplicando la lógica de retraso temporal (dt).
+        Previene el sobrepaso (overshooting) si dt es grande.
         """
-        # Si tiene retraso activo, consume un frame/ciclo y no se mueve
-        if self.movimientos_retraso > 0:
-            self.movimientos_retraso -= 1
+        # Si tiene retraso activo, consume tiempo y no se desplaza
+        if self.tiempo_retraso > 0.0:
+            self.tiempo_retraso -= dt
+            if self.tiempo_retraso < 0.0:
+                self.tiempo_retraso = 0.0
             return
 
         dx = objetivo_x - self.x
         dy = objetivo_y - self.y
         distancia = math.hypot(dx, dy)
 
-        if distancia > 0:
-            step_x = (dx / distancia) * self.velocidad
-            step_y = (dy / distancia) * self.velocidad
+        if distancia > 0.0:
+            # Prevención de sobrepaso: el paso no puede superar la distancia directa
+            paso = min(distancia, self.velocidad * dt)
+            step_x = (dx / distancia) * paso
+            step_y = (dy / distancia) * paso
 
             self.x += step_x
             self.y += step_y
 
-            # Mantener dentro de los límites
+            # Mantener dentro de los límites de la pantalla
             self.x = max(0.0, min(self.x, float(ancho - self.rect.width)))
             self.y = max(0.0, min(self.y, float(alto - self.rect.height)))
             self.actualizar_rect()
