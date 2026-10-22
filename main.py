@@ -22,22 +22,20 @@ from src.eventos import procesar_eventos
 from src.renderizado import Renderizador
 
 def cargar_archivo_env():
-    """Carga variables desde el archivo .env o .venv si existe y no están definidas en el sistema."""
-    for nombre in [".env", ".venv"]:
-        ruta = os.path.join(os.path.dirname(__file__), nombre)
-        if os.path.isfile(ruta):
-            with open(ruta, "r", encoding="utf-8") as f:
-                for linea in f:
-                    linea = linea.strip()
-                    if not linea or linea.startswith("#"):
-                        continue
-                    if "=" in linea:
-                        clave, valor = linea.split("=", 1)
-                        clave = clave.strip()
-                        valor = valor.strip().strip("\"'")
-                        if clave and clave not in os.environ:
-                            os.environ[clave] = valor
-            break
+    """Carga variables desde el archivo .env si existe y no están definidas en el sistema."""
+    ruta_env = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(ruta_env):
+        with open(ruta_env, "r", encoding="utf-8") as f:
+            for linea in f:
+                linea = linea.strip()
+                if not linea or linea.startswith("#"):
+                    continue
+                if "=" in linea:
+                    clave, valor = linea.split("=", 1)
+                    clave = clave.strip()
+                    valor = valor.strip().strip("\"'")
+                    if clave and clave not in os.environ:
+                        os.environ[clave] = valor
 
 cargar_archivo_env()
 
